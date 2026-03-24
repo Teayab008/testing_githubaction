@@ -12,7 +12,10 @@ on:
 jobs:
   build-java:
 
-    runs-on: ubuntu-latest
+    runs-on: ${{matrix.os}}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, Windows-latest, macOS-latest]
     
     steps:
     - uses: actions/checkout@v2
@@ -25,5 +28,5 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Build with Gradle
+    - name: Building with Gradle
       run: ./gradlew build
