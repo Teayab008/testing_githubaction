@@ -42,16 +42,9 @@ jobs:
     - name: Generate SonarQube HTML Report
       if: always()
       run: |
-        # Download using -L (follow redirects) and -o (output filename)
-        # Using version 5.0.2 which is the latest stable release
-        curl -L -o sonar-cnes-report.jar https://github.com
+        # Wget handles GitHub redirects much better than curl
+        wget -O sonar-cnes-report.jar https://github.com
         
-        # Verify the file is actually a JAR (ZIP) and not an HTML error page
-        if ! zip -T sonar-cnes-report.jar; then
-          echo "Downloaded file is corrupt or not a valid JAR."
-          exit 1
-        fi
-
         # Run report generation
         java -jar sonar-cnes-report.jar \
           -t ${{ secrets.SONAR_TOKEN }} \
@@ -59,13 +52,8 @@ jobs:
           -p my-java-app \
           -o .
         
-        # Clean up naming for the email attachment
+        # Rename to a fixed name
         mv my-java-app-*.html sonarqube-report.html
-
-    - name: Zip test reports
-      if: always()
-      run: |
-        zip -r test-reports.zip build/reports/tests/ build/reports/jacoco/
 
     - name: Read test results
       if: always()
@@ -77,6 +65,15 @@ jobs:
         echo "tests=$TESTS" >> $GITHUB_OUTPUT
         echo "failures=$FAILURES" >> $GITHUB_OUTPUT
         echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+
+    - name: Zip All Reports
+      if: always()
+      run: |
+        # Zipping the HTML report avoids Gmail's security block on .html files
+        zip -r final-report.zip \
+          sonarqube-report.html \
+          build/reports/tests/ \
+          build/reports/jacoco/
 
     - name: Send email with report
       if: always()
@@ -90,13 +87,18 @@ jobs:
         to: muhammad.tayyab@khaleef.com
         from: GitHub Actions
         convert_markdown: true
-        attachments: sonarqube-report.html,test-reports.zip
+        # Attach the ZIP containing everything
+        attachments: final-report.zip
         body: |
-          ## Build Report
-          **Status:** ${{ job.status }}
-          **Tests:** ${{ steps.test-results.outputs.tests }} | **Failures:** ${{ steps.test-results.outputs.failures }}
-
-          Please find the attached SonarQube HTML report and Test results zip.
+          ## Build Report Summary
+          
+          - **Status:** ${{ job.status }}
+          - **Total Tests:** ${{ steps.test-results.outputs.tests }}
+          - **Failures:** ${{ steps.test-results.outputs.failures }}
+          
+          **Note:** The SonarQube HTML report and unit test results are inside the attached `final-report.zip`.
+          
+          [View SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app)
 
     - name: Build and Push Docker Image
       if: success()
@@ -107,3 +109,21 @@ jobs:
         registry: docker.io
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Deploy to server
+      if: success()
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        password: ${{ secrets.DEPLOY_PASSWORD }}
+        port: ${{ secrets.DEPLOY_PORT }}
+        script: |
+          docker pull tayyab001/githubaction:latest
+          docker stop myapp || true
+          docker rm myapp || true
+          docker run -d \
+            --name myapp \
+            --restart always \
+            -p 8080:8080 \
+            tayyab001/githubaction:latest
