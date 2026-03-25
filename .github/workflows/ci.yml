@@ -25,6 +25,43 @@ jobs:
     - name: Building with Gradle
       run: ./gradlew build
       
+    - name: Zip test reports
+      if: always()
+      run: zip -r test-reports.zip build/reports/
+
+    - name: upload test report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: test-reports.zip
+        
+    - name: send email with report
+      if: always()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        subject: "Build ${{ job.status }} - ${{ github.repository }}  #${{ github.run_number }}"
+        to: amjadtayyab4@gmail.com
+        from: Github Actions
+        attachments: test-reports.zip
+        body: |
+          Build Status: ${{ job.status }}
+
+          Repository  : ${{ github.repository }}
+          Branch      : ${{ github.ref_name }}
+          Commit      : ${{ github.sha }}
+          Triggered by: ${{ github.actor }}
+
+          SonarQube Report:
+          ${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app
+
+          View full logs:
+          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        
     - name: SonarQube Analysis
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
