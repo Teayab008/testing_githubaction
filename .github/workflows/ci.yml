@@ -39,21 +39,25 @@ jobs:
           -Dsonar.token=$SONAR_TOKEN \
           -Dsonar.qualitygate.wait=true
 
-    - name: Generate SonarQube HTML Report
+    - name: Generate SonarQube Markdown Report
       if: always()
       run: |
-        # Wget handles GitHub redirects much better than curl
-        wget -O sonar-cnes-report.jar https://github.com
+        # Fixed Download: Using -L to follow redirects to the actual 42MB asset
+        curl -L -o sonar-cnes-report.jar https://github.com
         
-        # Run report generation
+        # Verify file size (should be ~42MB, not 555KB)
+        ls -lh sonar-cnes-report.jar
+        
+        # Generate Markdown (-m) instead of HTML to avoid Gmail security blocks
         java -jar sonar-cnes-report.jar \
           -t ${{ secrets.SONAR_TOKEN }} \
           -s ${{ secrets.SONAR_HOST_URL }} \
           -p my-java-app \
+          -m \
           -o .
         
-        # Rename to a fixed name
-        mv my-java-app-*.html sonarqube-report.html
+        # Rename the markdown file for the email step
+        mv my-java-app-*.md sonar-report.md
 
     - name: Read test results
       if: always()
@@ -61,19 +65,12 @@ jobs:
       run: |
         TESTS=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "tests=" | grep -o 'tests="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
         FAILURES=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "failures=" | grep -o 'failures="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
-        SKIPPED=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "skipped=" | grep -o 'skipped="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
         echo "tests=$TESTS" >> $GITHUB_OUTPUT
         echo "failures=$FAILURES" >> $GITHUB_OUTPUT
-        echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-
-    - name: Zip All Reports
-      if: always()
-      run: |
-        # Zipping the HTML report avoids Gmail's security block on .html files
-        zip -r final-report.zip \
-          sonarqube-report.html \
-          build/reports/tests/ \
-          build/reports/jacoco/
+        # Load the Sonar Markdown report content into an environment variable
+        echo "SONAR_SUMMARY<<EOF" >> $GITHUB_ENV
+        cat sonar-report.md >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
 
     - name: Send email with report
       if: always()
@@ -87,18 +84,18 @@ jobs:
         to: muhammad.tayyab@khaleef.com
         from: GitHub Actions
         convert_markdown: true
-        # Attach the ZIP containing everything
-        attachments: final-report.zip
         body: |
-          ## Build Report Summary
+          # Build & Sonar Report Summary
           
-          - **Status:** ${{ job.status }}
-          - **Total Tests:** ${{ steps.test-results.outputs.tests }}
-          - **Failures:** ${{ steps.test-results.outputs.failures }}
+          **Status:** ${{ job.status }}
+          **Total Tests:** ${{ steps.test-results.outputs.tests }}
+          **Failures:** ${{ steps.test-results.outputs.failures }}
           
-          **Note:** The SonarQube HTML report and unit test results are inside the attached `final-report.zip`.
+          ---
+          ${{ env.SONAR_SUMMARY }}
+          ---
           
-          [View SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app)
+          [View Full SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app)
 
     - name: Build and Push Docker Image
       if: success()
@@ -109,21 +106,3 @@ jobs:
         registry: docker.io
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Deploy to server
-      if: success()
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ secrets.DEPLOY_USER }}
-        password: ${{ secrets.DEPLOY_PASSWORD }}
-        port: ${{ secrets.DEPLOY_PORT }}
-        script: |
-          docker pull tayyab001/githubaction:latest
-          docker stop myapp || true
-          docker rm myapp || true
-          docker run -d \
-            --name myapp \
-            --restart always \
-            -p 8080:8080 \
-            tayyab001/githubaction:latest
