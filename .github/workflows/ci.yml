@@ -28,7 +28,6 @@ jobs:
       run: ./gradlew build
 
     - name: SonarQube Analysis
-      timeout-minutes: 3
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
