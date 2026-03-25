@@ -37,31 +37,27 @@ jobs:
           -Dsonar.projectKey=my-java-app \
           -Dsonar.host.url=$SONAR_HOST_URL \
           -Dsonar.token=$SONAR_TOKEN \
-          -Dsonar.qualitygate.wait=true \
-          -Dsonar.qualitygate.timeout=120
+          -Dsonar.qualitygate.wait=true
 
     - name: Generate SonarQube HTML Report
       if: always()
       run: |
-        # Use the latest stable version 5.0.2
-        curl -L -o sonar-report-tool.jar https://github.com
+        # Download with -L to follow GitHub redirects
+        curl -f -L -o sonar-report-tool.jar https://github.com
         
-        # Execute standalone report generation
+        # Execute report generation
         java -jar sonar-report-tool.jar \
           -t ${{ secrets.SONAR_TOKEN }} \
           -s ${{ secrets.SONAR_HOST_URL }} \
           -p my-java-app \
           -o .
         
-        # Consistent naming for the attachment
         mv my-java-app-*.html sonarqube-report.html
 
     - name: Zip test reports
       if: always()
       run: |
-        zip -r test-reports.zip \
-          build/reports/tests/ \
-          build/reports/jacoco/
+        zip -r test-reports.zip build/reports/tests/ build/reports/jacoco/
 
     - name: Read test results
       if: always()
@@ -82,35 +78,17 @@ jobs:
         server_port: 465
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
-        subject: "Build ${{ job.status }} — ${{ github.repository }} #${{ github.run_number }}"
+        subject: "Build ${{ job.status }} — #${{ github.run_number }}"
         to: muhammad.tayyab@khaleef.com
         from: GitHub Actions
         convert_markdown: true
-        # Corrected comma-separated syntax for multiple files
         attachments: sonarqube-report.html,test-reports.zip
         body: |
           ## Build Report
+          Status: ${{ job.status }}
+          Tests: ${{ steps.test-results.outputs.tests }} | Failures: ${{ steps.test-results.outputs.failures }}
 
-
-          | Field        | Value |
-          |-------------|-------|
-          | Status      | ${{ job.status }} |
-          | Repository  | ${{ github.repository }} |
-          | Branch      | ${{ github.ref_name }} |
-          | Build No    | #${{ github.run_number }} |
-
-          ## Test Results
-
-
-          | Total Tests | Failures | Skipped |
-          |------------|----------|---------|
-          | ${{ steps.test-results.outputs.tests }} | ${{ steps.test-results.outputs.failures }} | ${{ steps.test-results.outputs.skipped }} |
-
-          ## SonarQube & Links
-          
-          - **Reports Attached:** Check `sonarqube-report.html` and `test-reports.zip`.
-          - [SonarQube Dashboard](${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app)
-          - [Full Build Logs](https://github.com{{ github.repository }}/actions/runs/${{ github.run_id }})
+          Please find the attached SonarQube HTML report and Test results.
 
     - name: Build and Push Docker Image
       if: success()
@@ -121,21 +99,3 @@ jobs:
         registry: docker.io
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-
-    - name: Deploy to server
-      if: success()
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.DEPLOY_HOST }}
-        username: ${{ secrets.DEPLOY_USER }}
-        password: ${{ secrets.DEPLOY_PASSWORD }}
-        port: ${{ secrets.DEPLOY_PORT }}
-        script: |
-          docker pull tayyab001/githubaction:latest
-          docker stop myapp || true
-          docker rm myapp || true
-          docker run -d \
-            --name myapp \
-            --restart always \
-            -p 8080:8080 \
-            tayyab001/githubaction:latest
