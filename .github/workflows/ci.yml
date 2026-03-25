@@ -25,6 +25,18 @@ jobs:
     - name: Building with Gradle
       run: ./gradlew build
       
+   
+    - name: SonarQube Analysis
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      run: |
+        ./gradlew sonar \
+          -Dsonar.projectKey=my-java-app \
+          -Dsonar.host.url=$SONAR_HOST_URL \
+          -Dsonar.token=$SONAR_TOKEN \
+          -Dsonar.qualitygate.wait=true
+          
     - name: Zip test reports
       if: always()
       run: zip -r test-reports.zip build/reports/tests/
@@ -45,7 +57,7 @@ jobs:
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
         subject: "Build ${{ job.status }} — ${{ github.repository }} #${{ github.run_number }}"
-        to: ${{ secrets.MAIL_USERNAME }}
+        to: muhammad.tayyab@khaleef.com
         from: GitHub Actions
         body: |
           Build Status  : ${{ job.status }}
@@ -60,16 +72,6 @@ jobs:
           Full Logs:
           https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         
-    - name: SonarQube Analysis
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-      run: |
-        ./gradlew sonar \
-          -Dsonar.projectKey=my-java-app \
-          -Dsonar.host.url=$SONAR_HOST_URL \
-          -Dsonar.token=$SONAR_TOKEN \
-          -Dsonar.qualitygate.wait=true
 
     - name: Build and Push Docker Image
       uses: mr-smithers-excellent/docker-build-push@v4
