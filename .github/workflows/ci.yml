@@ -42,16 +42,24 @@ jobs:
     - name: Generate SonarQube HTML Report
       if: always()
       run: |
-        # Download with -L to follow GitHub redirects
-        curl -f -L -o sonar-report-tool.jar https://github.com
+        # Download using -L (follow redirects) and -o (output filename)
+        # Using version 5.0.2 which is the latest stable release
+        curl -L -o sonar-cnes-report.jar https://github.com
         
-        # Execute report generation
-        java -jar sonar-report-tool.jar \
+        # Verify the file is actually a JAR (ZIP) and not an HTML error page
+        if ! zip -T sonar-cnes-report.jar; then
+          echo "Downloaded file is corrupt or not a valid JAR."
+          exit 1
+        fi
+
+        # Run report generation
+        java -jar sonar-cnes-report.jar \
           -t ${{ secrets.SONAR_TOKEN }} \
           -s ${{ secrets.SONAR_HOST_URL }} \
           -p my-java-app \
           -o .
         
+        # Clean up naming for the email attachment
         mv my-java-app-*.html sonarqube-report.html
 
     - name: Zip test reports
@@ -85,10 +93,10 @@ jobs:
         attachments: sonarqube-report.html,test-reports.zip
         body: |
           ## Build Report
-          Status: ${{ job.status }}
-          Tests: ${{ steps.test-results.outputs.tests }} | Failures: ${{ steps.test-results.outputs.failures }}
+          **Status:** ${{ job.status }}
+          **Tests:** ${{ steps.test-results.outputs.tests }} | **Failures:** ${{ steps.test-results.outputs.failures }}
 
-          Please find the attached SonarQube HTML report and Test results.
+          Please find the attached SonarQube HTML report and Test results zip.
 
     - name: Build and Push Docker Image
       if: success()
