@@ -2,127 +2,127 @@ name: Java CI with Gradle
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build-java:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: 17
-          distribution: temurin
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: 17
+        distribution: temurin
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
 
-      - name: Building with Gradle
-        run: ./gradlew build
+    - name: Building with Gradle
+      run: ./gradlew build
 
-      - name: SonarQube Analysis
-        timeout-minutes: 3
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: |
-          ./gradlew sonar \
-            -Dsonar.projectKey=my-java-app \
-            -Dsonar.host.url=$SONAR_HOST_URL \
-            -Dsonar.token=$SONAR_TOKEN \
-            -Dsonar.qualitygate.wait=true \
-            -Dsonar.qualitygate.timeout=120
+    - name: SonarQube Analysis
+      timeout-minutes: 3
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      run: |
+        ./gradlew sonar \
+          -Dsonar.projectKey=my-java-app \
+          -Dsonar.host.url=$SONAR_HOST_URL \
+          -Dsonar.token=$SONAR_TOKEN \
+          -Dsonar.qualitygate.wait=true \
+          -Dsonar.qualitygate.timeout=120
 
-      - name: Zip test reports
-        if: always()
-        run: |
-          zip -r test-reports.zip \
-            build/reports/tests/ \
-            build/reports/jacoco/
+    - name: Zip test reports
+      if: always()
+      run: |
+        zip -r test-reports.zip \
+          build/reports/tests/ \
+          build/reports/jacoco/
 
-      - name: Upload test report artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports
-          path: test-reports.zip
+    - name: Upload test report artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports
+        path: test-reports.zip
 
-      - name: Read test results
-        if: always()
-        id: test-results
-        run: |
-          TESTS=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "tests=" | grep -o 'tests="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
-          FAILURES=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "failures=" | grep -o 'failures="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
-          SKIPPED=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "skipped=" | grep -o 'skipped="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
-          echo "tests=$TESTS" >> $GITHUB_OUTPUT
-          echo "failures=$FAILURES" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+    - name: Read test results
+      if: always()
+      id: test-results
+      run: |
+        TESTS=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "tests=" | grep -o 'tests="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
+        FAILURES=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "failures=" | grep -o 'failures="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
+        SKIPPED=$(find build/reports/tests/test -name "*.xml" | xargs grep -h "skipped=" | grep -o 'skipped="[0-9]*"' | grep -o '[0-9]*' | awk '{s+=$1} END {print s}')
+        echo "tests=$TESTS" >> $GITHUB_OUTPUT
+        echo "failures=$FAILURES" >> $GITHUB_OUTPUT
+        echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
 
-      - name: Send email with report
-        if: always()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          subject: "Build ${{ job.status }} — ${{ github.repository }} #${{ github.run_number }}"
-          to: muhammad.tayyab@khaleef.com
-          from: GitHub Actions
-          convert_markdown: true
-          body: |
-            ## Build Report
+    - name: Send email with report
+      if: always()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        subject: "Build ${{ job.status }} — ${{ github.repository }} #${{ github.run_number }}"
+        to: muhammad.tayyab@khaleef.com
+        from: GitHub Actions
+        convert_markdown: true
+        body: |
+          ## Build Report
 
-            | Field         | Value |
-            |---------------|-------|
-            | Status        | ${{ job.status }} |
-            | Repository    | ${{ github.repository }} |
-            | Branch        | ${{ github.ref_name }} |
-            | Commit        | ${{ github.sha }} |
-            | Triggered by  | ${{ github.actor }} |
-            | Build No      | #${{ github.run_number }} |
+          | Field        | Value |
+          |-------------|-------|
+          | Status      | ${{ job.status }} |
+          | Repository  | ${{ github.repository }} |
+          | Branch      | ${{ github.ref_name }} |
+          | Commit      | ${{ github.sha }} |
+          | Triggered by| ${{ github.actor }} |
+          | Build No    | #${{ github.run_number }} |
 
-            ## Test Results
+          ## Test Results
 
-            | Total Tests | Failures | Skipped |
-            |-------------|----------|---------|
-            | ${{ steps.test-results.outputs.tests }} | ${{ steps.test-results.outputs.failures }} | ${{ steps.test-results.outputs.skipped }} |
+          | Total Tests | Failures | Skipped |
+          |------------|----------|---------|
+          | ${{ steps.test-results.outputs.tests }} | ${{ steps.test-results.outputs.failures }} | ${{ steps.test-results.outputs.skipped }} |
 
-            ## Links
+          ## Links
 
-            - [SonarQube Report](${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app)
-            - [Full Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            - [Download Test Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [SonarQube Report](${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app)
+          - [Full Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - [Download Test Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-      - name: Build and Push Docker Image
-        uses: mr-smithers-excellent/docker-build-push@v4
-        with:
-          image: tayyab001/githubaction
-          tag: latest
-          registry: docker.io
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Build and Push Docker Image
+      uses: mr-smithers-excellent/docker-build-push@v4
+      with:
+        image: tayyab001/githubaction
+        tag: latest
+        registry: docker.io
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Deploy to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.DEPLOY_PASSWORD }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          script: |
-            docker pull tayyab001/githubaction:latest
-            docker stop myapp || true
-            docker rm myapp || true
-            docker run -d \
-              --name myapp \
-              --restart always \
-              -p 8080:8080 \
-              tayyab001/githubaction:latest
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        password: ${{ secrets.DEPLOY_PASSWORD }}
+        port: ${{ secrets.DEPLOY_PORT }}
+        script: |
+          docker pull tayyab001/githubaction:latest
+          docker stop myapp || true
+          docker rm myapp || true
+          docker run -d \
+            --name myapp \
+            --restart always \
+            -p 8080:8080 \
+            tayyab001/githubaction:latest
