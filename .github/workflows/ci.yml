@@ -39,3 +39,20 @@ jobs:
        registry: docker.io
        username: ${{ secrets.DOCKER_USERNAME }}
        password: ${{ secrets.DOCKER_PASSWORD }}
+       
+    - name: Deploy to server :
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+       host: ${{ secrets.DEPLOY_HOST }}
+       username: ${{ secrets.DEPLOY_USER }}
+       key: ${{ secrets.DEPLOY_SSH_KEY }}
+       script: |
+         docker pull tayyab001/githubaction:latest
+         docker stop myapp || true
+         docker rm myapp || true
+         docker run -d \
+          --name myapp \
+          --restart always \
+          -p 8080:8080 \
+          tayyab001/githubaction:latest
+          
