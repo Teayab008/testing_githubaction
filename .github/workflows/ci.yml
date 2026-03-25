@@ -28,7 +28,7 @@ jobs:
       run: ./gradlew build
 
     - name: SonarQube Analysis
-      timeout-minutes: 3          # stops waiting after 3 minutes instead of hanging forever
+      timeout-minutes: 3
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -76,7 +76,7 @@ jobs:
         subject: "Build ${{ job.status }} — ${{ github.repository }} #${{ github.run_number }}"
         to: muhammad.tayyab@khaleef.com
         from: GitHub Actions
-        convert_markdown: true      # renders the body as HTML email
+        convert_markdown: true
         body: |
           ## Build Report
 
@@ -110,4 +110,19 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
-    - name: Dep
+    - name: Deploy to server
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEPLOY_HOST }}
+        username: ${{ secrets.DEPLOY_USER }}
+        password: ${{ secrets.DEPLOY_PASSWORD }}
+        port: ${{ secrets.DEPLOY_PORT }}
+        script: |
+          docker pull tayyab001/githubaction:latest
+          docker stop myapp || true
+          docker rm myapp || true
+          docker run -d \
+            --name myapp \
+            --restart always \
+            -p 8080:8080 \
+            tayyab001/githubaction:latest
