@@ -45,7 +45,7 @@ jobs:
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
         subject: "Build ${{ job.status }} - ${{ github.repository }}  #${{ github.run_number }}"
-        to: amjadtayyab4@gmail.com
+        to: muhammad.tayyab@khaleef.com
         from: Github Actions
         attachments: test-reports.zip
         body: |
