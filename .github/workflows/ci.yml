@@ -36,7 +36,7 @@ jobs:
         name: test-reports
         path: test-reports.zip
         
-    - name: send email with report
+    - name: Send email with report
       if: always()
       uses: dawidd6/action-send-mail@v3
       with:
@@ -44,22 +44,20 @@ jobs:
         server_port: 465
         username: ${{ secrets.MAIL_USERNAME }}
         password: ${{ secrets.MAIL_PASSWORD }}
-        subject: "Build ${{ job.status }} - ${{ github.repository }}  #${{ github.run_number }}"
-        to: muhammad.tayyab@khaleef.com
-        from: Github Actions
-        attachments: test-reports.zip
+        subject: "Build ${{ job.status }} — ${{ github.repository }} #${{ github.run_number }}"
+        to: ${{ secrets.MAIL_USERNAME }}
+        from: GitHub Actions
         body: |
-          Build Status: ${{ job.status }}
-
-          Repository  : ${{ github.repository }}
-          Branch      : ${{ github.ref_name }}
-          Commit      : ${{ github.sha }}
-          Triggered by: ${{ github.actor }}
+          Build Status  : ${{ job.status }}
+          Repository    : ${{ github.repository }}
+          Branch        : ${{ github.ref_name }}
+          Commit        : ${{ github.sha }}
+          Triggered by  : ${{ github.actor }}
 
           SonarQube Report:
           ${{ secrets.SONAR_HOST_URL }}/dashboard?id=my-java-app
 
-          View full logs:
+          Full Logs:
           https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         
     - name: SonarQube Analysis
