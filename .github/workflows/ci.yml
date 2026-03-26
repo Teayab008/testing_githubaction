@@ -71,7 +71,8 @@ jobs:
         curl -u ${{ secrets.SONAR_TOKEN }}: \
           "${{ secrets.SONAR_HOST_URL }}/api/measures/component?component=my-java-app&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density" \
           -o sonar-results.json
-        
+        cat sonar-results.json
+
         BUGS=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='bugs'))")
         VULNERABILITIES=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='vulnerabilities'))")
         CODE_SMELLS=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='code_smells'))")
