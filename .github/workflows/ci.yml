@@ -64,6 +64,24 @@ jobs:
         echo "tests=$TESTS" >> $GITHUB_OUTPUT
         echo "failures=$FAILURES" >> $GITHUB_OUTPUT
         echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+        
+    - name: Get SonarQube results
+      if: always()
+      run: |
+        curl -u ${{ secrets.SONAR_TOKEN }}: \
+          "${{ secrets.SONAR_HOST_URL }}/api/measures/component?component=my-java-app&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density" \
+          -o sonar-results.json
+        
+        BUGS=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='bugs'))")
+        VULNERABILITIES=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='vulnerabilities'))")
+        CODE_SMELLS=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='code_smells'))")
+        COVERAGE=$(cat sonar-results.json | python3 -c "import sys,json; measures=json.load(sys.stdin)['component']['measures']; print(next(m['value'] for m in measures if m['metric']=='coverage'))")
+        
+        echo "bugs=$BUGS" >> $GITHUB_OUTPUT
+        echo "vulnerabilities=$VULNERABILITIES" >> $GITHUB_OUTPUT
+        echo "code_smells=$CODE_SMELLS" >> $GITHUB_OUTPUT
+        echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+      id: sonar-results
 
     - name: Send email with report
       if: always()
@@ -94,6 +112,13 @@ jobs:
           | Total Tests | Failures | Skipped |
           |------------|----------|---------|
           | ${{ steps.test-results.outputs.tests }} | ${{ steps.test-results.outputs.failures }} | ${{ steps.test-results.outputs.skipped }} |
+          
+          | Metric          | Value |
+          |----------------|-------|
+          | Bugs           | ${{ steps.sonar-results.outputs.bugs }} |
+          | Vulnerabilities| ${{ steps.sonar-results.outputs.vulnerabilities }} |
+          | Code Smells    | ${{ steps.sonar-results.outputs.code_smells }} |
+          | Coverage       | ${{ steps.sonar-results.outputs.coverage }}% |
 
           ## Links
 
