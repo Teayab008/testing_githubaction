@@ -84,7 +84,7 @@ jobs:
         echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
       id: sonar-results
 
-    - name: Send email with report
+    - name: Send email with reports
       if: always()
       uses: dawidd6/action-send-mail@v3
       with:
